@@ -2,8 +2,8 @@
 #include <GLFW/glfw3.h>
 #include <iostream>
 
-void InitTriangle();
-void InitShaders();
+unsigned int InitTriangle();
+unsigned int InitShaders();
 int main(void)
 {
     GLFWwindow* window;
@@ -41,15 +41,19 @@ int main(void)
     glFrontFace(GL_CCW);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
-   
-    InitTriangle();
-    InitShaders();
+ 
+    unsigned int vao = InitTriangle();
+    unsigned int shaderProgram = InitShaders();
 
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
     {
         /* Render here */
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+        glBindVertexArray(vao);
+        glUseProgram(shaderProgram);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
 
         /* Swap front and back buffers */
         glfwSwapBuffers(window);
@@ -62,18 +66,37 @@ int main(void)
     return 0;
 }
 
-void InitTriangle()
+unsigned int InitTriangle()
 {
     float vertices[] = {
-           -0.5f, -0.5f, 0.0f,
-           0.5f, -0.5f, 0.0f,
-           0.5f, 0.5f, 0.0f
+           // 3 floats for position & 3 floats for color
+           -0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
+           0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
+           0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f,
+
+           -0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
+           0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f,
+           -0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f
     };
 
-    GLuint vertexbufferObject;
-    glGenBuffers(1, &vertexbufferObject);
-    glBindBuffer(GL_ARRAY_BUFFER, vertexbufferObject);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    unsigned int VAO;
+    glGenVertexArrays(1, &VAO);
+
+    glBindVertexArray(VAO);
+    {
+        GLuint vertexbufferObject;
+        glGenBuffers(1, &vertexbufferObject);
+        glBindBuffer(GL_ARRAY_BUFFER, vertexbufferObject);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    }
+    glBindVertexArray(0);
+    return VAO;
 }
 
 // Fixed function pipeline to programmable pipeline
@@ -97,20 +120,24 @@ void main()
 }
 */
 
-void InitShaders()
+unsigned int InitShaders()
 {
     const char* vertexShaderSource = "#version 330 core\n"
         "layout (location = 0) in vec3 position;\n"
+        "layout (location = 1) in vec3 color;\n"
+        "out vec3 vertexcolor;\n"
         "void main()\n"
         "{\n"
         "   gl_Position = vec4(position.x, position.y, position.z, 1.0);\n"
+         "  vertexcolor = color;\n"
         "}\0";
 
     const char* fragmentShaderSource = "#version 330 core\n"
         "out vec4 FragColor;\n"
+        "in vec3 vertexcolor;\n"
         "void main()\n"
         "{\n"
-        "    FragColor = vec4(1.0f, 0.5f, 0.2f, 1.0f);\n"
+        "    FragColor = vec4(vertexcolor.x, vertexcolor.y, vertexcolor.z, 1.0f);\n"
         "}\0";
     int success;
 
@@ -149,4 +176,5 @@ void InitShaders()
         char infoLog[512];
         glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
     }
+    return shaderProgram;
 }
