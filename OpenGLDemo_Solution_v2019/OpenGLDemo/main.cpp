@@ -17,7 +17,7 @@ int main(void)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    window = glfwCreateWindow(640, 480, "Hello World", NULL, NULL);
+    window = glfwCreateWindow(1280, 720, "Hello World", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -53,7 +53,7 @@ int main(void)
 
         glBindVertexArray(vao);
         glUseProgram(shaderProgram);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
         /* Swap front and back buffers */
         glfwSwapBuffers(window);
@@ -70,18 +70,18 @@ unsigned int InitTriangle()
 {
     float vertices[] = {
            // 3 floats for position & 3 floats for color
-           -0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
-           0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
-           0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f,
-
-           -0.5f, -0.5f, 0.0f, 1.0f, 0.0f, 0.0f,
-           0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f,
-           -0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 1.0f
+           -0.5f, -0.5f, 1.0f, 1.0f, 0.0f, 0.0f,    // bottom left
+           0.5f, -0.5f, 1.0f, 1.0f, 0.0f, 0.0f,     // bottom right
+           0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f,      // top right
+           -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f,     // top left
+    };
+    unsigned int indices[] = {
+        0, 1, 2,
+        0, 2, 3
     };
 
     unsigned int VAO;
     glGenVertexArrays(1, &VAO);
-
     glBindVertexArray(VAO);
     {
         GLuint vertexbufferObject;
@@ -94,7 +94,13 @@ unsigned int InitTriangle()
 
         glEnableVertexAttribArray(1);
         glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+
+        GLuint indexbufferObject;
+        glGenBuffers(1, &indexbufferObject);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexbufferObject);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
     }
+
     glBindVertexArray(0);
     return VAO;
 }
@@ -120,16 +126,32 @@ void main()
 }
 */
 
+// OpenGL 3.3 && GLSL 3.3
+
 unsigned int InitShaders()
 {
     const char* vertexShaderSource = "#version 330 core\n"
         "layout (location = 0) in vec3 position;\n"
         "layout (location = 1) in vec3 color;\n"
         "out vec3 vertexcolor;\n"
+        "uniform data_type name"
+        "uniform float PI;\n"
+        "const float angle = 25.0f * PI/180.0f;\n"
+        "mat4 scaleMatrix = mat4(1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);\n"
+        "mat4 translateMatrix = mat4(1.0f, 0.0f, 0.0f, 0.0f, "
+                                    "0.0f, 1.0f, 0.0f, 0.0f, "
+                                    "0.0f, 0.0f, 1.0f, 0.0f, "
+                                    "0.0f, 0.0f, 0.0f, 1.0f);\n"
+        "mat4 rotationMatrix = mat4(cos(angle),  sin(angle), 0.0f, 0.0f, "
+                                    "-sin(angle), cos(angle), 0.0f, 0.0f, "
+                                    "0.0f, 0.0f, 1.0f, 0.0f, "
+                                    "0.0f, 0.0f, 0.0f, 1.0f);\n"
+        // Order is important : Scale -> Rotate -> Translate
         "void main()\n"
         "{\n"
-        "   gl_Position = vec4(position.x, position.y, position.z, 1.0);\n"
-         "  vertexcolor = color;\n"
+        "   vec4 newPos = translateMatrix * rotationMatrix * scaleMatrix * vec4(position, 1.f);\n"
+        "   gl_Position = vec4(newPos.x, newPos.y, newPos.z, 1.0f);\n"
+        "   vertexcolor = color;\n"
         "}\0";
 
     const char* fragmentShaderSource = "#version 330 core\n"
