@@ -45,15 +45,27 @@ int main(void)
     unsigned int vao = InitTriangle();
     unsigned int shaderProgram = InitShaders();
 
+    int uniformColorLocation = glGetUniformLocation(shaderProgram, "uniformColor");
+    glUniform4f(uniformColorLocation, 0.0f, 1.0f, 0.0f, 1.0f);
+
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
     {
         /* Render here */
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-        glBindVertexArray(vao);
+        float timeValue = glfwGetTime();
+        float greenValue = (sin(timeValue) / 2.0f) + 0.5f;
+        
+
+        int timeLocation = glGetUniformLocation(shaderProgram, "time");
+        glUniform1f(timeLocation, timeValue);
+
         glUseProgram(shaderProgram);
+
+        glBindVertexArray(vao);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
 
         /* Swap front and back buffers */
         glfwSwapBuffers(window);
@@ -134,9 +146,9 @@ unsigned int InitShaders()
         "layout (location = 0) in vec3 position;\n"
         "layout (location = 1) in vec3 color;\n"
         "out vec3 vertexcolor;\n"
-        "uniform data_type name"
         "uniform float PI;\n"
-        "const float angle = 25.0f * PI/180.0f;\n"
+        "uniform float time;\n"
+        "float angle = 25.0f * PI/180.0f;\n"
         "mat4 scaleMatrix = mat4(1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);\n"
         "mat4 translateMatrix = mat4(1.0f, 0.0f, 0.0f, 0.0f, "
                                     "0.0f, 1.0f, 0.0f, 0.0f, "
@@ -149,17 +161,21 @@ unsigned int InitShaders()
         // Order is important : Scale -> Rotate -> Translate
         "void main()\n"
         "{\n"
+        "   scaleMatrix[0][0] = (sin(time) / 2.0f) + 0.5f;\n"
         "   vec4 newPos = translateMatrix * rotationMatrix * scaleMatrix * vec4(position, 1.f);\n"
-        "   gl_Position = vec4(newPos.x, newPos.y, newPos.z, 1.0f);\n"
+        "   gl_Position = newPos;\n"
         "   vertexcolor = color;\n"
         "}\0";
 
     const char* fragmentShaderSource = "#version 330 core\n"
         "out vec4 FragColor;\n"
         "in vec3 vertexcolor;\n"
+        "uniform vec4 uniformColor;\n"
+        "uniform float time;\n"
         "void main()\n"
         "{\n"
-        "    FragColor = vec4(vertexcolor.x, vertexcolor.y, vertexcolor.z, 1.0f);\n"
+        "    //FragColor = vec4(1.0f, 1.0f, vertexcolor.gr);\n"
+        "    FragColor = vec4((sin(time) / 2.0f) + 0.5f, vertexcolor.bg, 1.0f);\n"
         "}\0";
     int success;
 
