@@ -50,6 +50,9 @@ int main(void)
     glFrontFace(GL_CCW);
     glEnable(GL_CULL_FACE);
     glCullFace(GL_BACK);
+
+    //glLineWidth(25.0f);
+   // glPointSize(25.0f);
  
     unsigned int vao = InitTriangle();
     unsigned int shaderProgram = InitShaders();
@@ -58,12 +61,16 @@ int main(void)
     int uniformColorLocation = glGetUniformLocation(shaderProgram, "uniformColor");
     glUniform4f(uniformColorLocation, 0.0f, 1.0f, 0.0f, 1.0f);
 
+    int uniformPILocation = glGetUniformLocation(shaderProgram, "PI");
+    glUniform1f(uniformPILocation, 3.14f);
+
     glViewport(0, 0, 1280, 720);
 
     /* Loop until the user closes the window */
     while (!glfwWindowShouldClose(window))
     {
         /* Render here */
+        glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
         float timeValue = glfwGetTime();
@@ -100,7 +107,14 @@ unsigned int InitTriangle()
             0.5f, -0.5f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,     // bottom right
             0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,     // top right
            -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f    // top left
-    };
+    };/*
+    float vertices[] = {
+        // 3 floats for position & 3 floats for color
+        -1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,    // bottom left
+         1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,     // bottom right
+         1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,     // top right
+        -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f    // top left
+    };*/
     unsigned int indices[] = {
         0, 1, 2,
         0, 2, 3
@@ -180,8 +194,9 @@ unsigned int InitShaders()
         // Order is important : Scale -> Rotate -> Translate
         "void main()\n"
         "{\n"
-        "   //scaleMatrix[0][0] = (sin(time) / 2.0f) + 0.5f;\n"
-        "   vec4 newPos = vec4(position, 1.f);\n"
+        "   scaleMatrix[0][0] = scaleMatrix[1][1] = (sin(time*0.1) / 2.0f) + 0.5f;\n"
+        "   vec4 newPos = vec4(position, 1.0);\n"
+        "   //newPos = vec4(position, 1.f);\n"
         "   gl_Position = newPos;\n"
         "   vertexcolor = color;\n"
         "   outUV = uv;\n"
@@ -194,15 +209,30 @@ unsigned int InitShaders()
         "uniform vec4 uniformColor;\n"
         "uniform sampler2D Texture;"
         "uniform float time;\n"
+        "uniform float PI;\n"
+       
         "void main()\n"
         "{\n"
         "    //FragColor = vec4(1.0f, 1.0f, vertexcolor.gr);\n"
-        "    //FragColor = vec4((sin(time) / 2.0f) + 0.5f, vertexcolor.bg, 1.0f);\n"
+        "    //FragColor = vec4(vertexcolor.rbg, 1.0f);\n"
+        "    FragColor =  texture(Texture, outUV);\n"
+        "    if(outUV.x > abs(sin(time*2.0f)))"
+        "       FragColor = vec4(0.0f, 0.2f, 0.2f, 1.0f);"
         "    vec2 uv1 = outUV - vec2(0.5);\n"
-        "    vec2 uv2 = uv1 * vec2(2.0);\n"
+        "    vec2 uv2 = uv1 * vec2(abs(sin(time) / 0.5f));\n"
         "    vec2 uv3 = uv2 + vec2(0.5);\n"
+        "    vec2 uvScroll = outUV + vec2(time*0.2f, 0.0f);\n"
         "    vec2 modifiedUV = outUV * vec2(2.0) - vec2(0.5);\n"
-        "    FragColor = texture(Texture, uv3);\n"
+        "    vec2 invertedUV = vec2(1.0f, 1.0f) - outUV;\n"
+        "    float angle = time*15.0f * 3.14f/180.0f;\n"
+        "    vec2 uv4 = outUV * vec2(1.0f, 720.0f/1280.0f);\n"
+        "    vec2 uv5 = uv4 - vec2(0.5f);\n"
+        "    mat4 rotationMatrix = mat4(cos(angle),  sin(angle), 0.0f, 0.0f, "
+        "                                   -sin(angle), cos(angle), 0.0f, 0.0f, "
+                                            "0.0f, 0.0f, 1.0f, 0.0f, "
+        "                                   0.0f, 0.0f, 0.0f, 1.0f);\n"
+        "    vec4 rotatedUV = rotationMatrix * vec4(uv5, 0.0f, 1.0f);\n"
+        "    //FragColor = texture(Texture, rotatedUV.xy*vec2(5.0f) - vec2(0.5));\n"
         "}\0";
     int success;
 
@@ -247,9 +277,9 @@ unsigned int InitShaders()
 unsigned int LoadTexture()
 {
     int width, height, nrChannels;
-    std::string fileName = GetMediaPath() + "minions.png";
+    std::string fileName = GetMediaPath() + "minion-transparent-background-9.png";
     stbi_set_flip_vertically_on_load(true);
-    unsigned char * data = stbi_load(fileName.c_str(), &width, &height, &nrChannels, 0);
+    unsigned char * data = stbi_load(fileName.c_str(), &width, &height, &nrChannels, STBI_rgb_alpha);
     if(data)
         std::cout << width << " " << height << " " << nrChannels << std::endl;
     else
@@ -257,22 +287,19 @@ unsigned int LoadTexture()
         std::cout << "Cound not load image : " << fileName << std::endl;
     }
 
-    
-    
-    
     unsigned int texture;
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 
-    float borderColor[] = { 1.0f, 1.0f, 0.0f, 1.0f };
-    glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
+   // float borderColor[] = { 1.0f, 1.0f, 0.0f, 1.0f };
+   // glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
 
     glGenerateMipmap(GL_TEXTURE_2D);
-
-   
 
     stbi_image_free(data);
 
