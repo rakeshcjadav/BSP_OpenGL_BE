@@ -1,8 +1,14 @@
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
-#include <iostream>
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
+#include"Header.h"
+
+glm::mat4 camera(float Translate, glm::vec2 const& Rotate)
+{
+    glm::mat4 Projection = glm::perspective(glm::pi<float>() * 0.25f, 4.0f / 3.0f, 0.1f, 100.f);
+    glm::mat4 View = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -Translate));
+    View = glm::rotate(View, Rotate.y, glm::vec3(-1.0f, 0.0f, 0.0f));
+    View = glm::rotate(View, Rotate.x, glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 Model = glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
+    return Projection * View * Model;
+}
 
 unsigned int InitTriangle();
 unsigned int InitShaders();
@@ -53,7 +59,7 @@ int main(void)
 
     //glLineWidth(25.0f);
    // glPointSize(25.0f);
- 
+
     unsigned int vao = InitTriangle();
     unsigned int shaderProgram = InitShaders();
     unsigned int texture = LoadTexture();
@@ -101,13 +107,13 @@ int main(void)
 
 unsigned int InitTriangle()
 {
-    float vertices[] = {
-           // 3 floats for position & 3 floats for color
-           -0.5f, -0.5f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,    // bottom left
-            0.5f, -0.5f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,     // bottom right
-            0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,     // top right
-           -0.5f, 0.5f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f    // top left
-    };/*
+    std::vector<SVertex> vertices = {
+        SVertex(glm::vec3(-0.5f, -0.5f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(0.0f, 0.0f)),
+        SVertex(glm::vec3(0.5f, -0.5f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(1.0f, 0.0f)),
+        SVertex(glm::vec3(0.5f, 0.5f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(1.0f, 1.0f)),
+        SVertex(glm::vec3(-0.5f, 0.5f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(0.0f, 1.0f))
+    };
+    /*
     float vertices[] = {
         // 3 floats for position & 3 floats for color
         -1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,    // bottom left
@@ -127,16 +133,16 @@ unsigned int InitTriangle()
         GLuint vertexbufferObject;
         glGenBuffers(1, &vertexbufferObject);
         glBindBuffer(GL_ARRAY_BUFFER, vertexbufferObject);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(SVertex) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
 
         glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(SVertex), (void*)0);
 
         glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(SVertex), (void*)(sizeof(glm::vec3)));
 
         glEnableVertexAttribArray(2);
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(SVertex), (void*)(2 * sizeof(glm::vec3)));
 
         GLuint indexbufferObject;
         glGenBuffers(1, &indexbufferObject);
@@ -195,7 +201,7 @@ unsigned int InitShaders()
         "void main()\n"
         "{\n"
         "   scaleMatrix[0][0] = scaleMatrix[1][1] = (sin(time*0.1) / 2.0f) + 0.5f;\n"
-        "   vec4 newPos = vec4(position, 1.0);\n"
+        "   vec4 newPos = scaleMatrix * vec4(position, 1.0);\n"
         "   //newPos = vec4(position, 1.f);\n"
         "   gl_Position = newPos;\n"
         "   vertexcolor = color;\n"
