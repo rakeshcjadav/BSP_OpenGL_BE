@@ -10,3 +10,5 @@
 #include"glm.h"
 
 #include "AssetDefs.h"
+
+using namespace std;

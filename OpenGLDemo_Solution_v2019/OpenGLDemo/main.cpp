@@ -1,15 +1,5 @@
 #include"Header.h"
 
-glm::mat4 camera(float Translate, glm::vec2 const& Rotate)
-{
-    glm::mat4 Projection = glm::perspective(glm::pi<float>() * 0.25f, 4.0f / 3.0f, 0.1f, 100.f);
-    glm::mat4 View = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -Translate));
-    View = glm::rotate(View, Rotate.y, glm::vec3(-1.0f, 0.0f, 0.0f));
-    View = glm::rotate(View, Rotate.x, glm::vec3(0.0f, 1.0f, 0.0f));
-    glm::mat4 Model = glm::scale(glm::mat4(1.0f), glm::vec3(0.5f));
-    return Projection * View * Model;
-}
-
 unsigned int InitTriangle();
 unsigned int InitShaders();
 unsigned int LoadTexture();
@@ -81,10 +71,24 @@ int main(void)
 
         float timeValue = glfwGetTime();
         float greenValue = (sin(timeValue) / 2.0f) + 0.5f;
-        
 
         int timeLocation = glGetUniformLocation(shaderProgram, "time");
         glUniform1f(timeLocation, timeValue);
+
+        glm::mat4 scaleMatrix = glm::identity<glm::mat4>();
+        scaleMatrix = glm::scale(scaleMatrix, glm::vec3(1.0f, 1.0f, 1.0f));
+
+        glm::mat4 rotationMatrix = glm::identity<glm::mat4>();
+        rotationMatrix = glm::rotate(rotationMatrix, greenValue, glm::vec3(0.0f, 0.0f, 1.0f));
+
+        glm::mat4 translateMatrix = glm::identity<glm::mat4>();
+        translateMatrix = glm::translate(translateMatrix, glm::vec3(0.0f, 0.0f, 0.0f));
+
+        // Scale -> Rotate -> Translate
+        glm::mat4 transformMatrix = translateMatrix *rotationMatrix* scaleMatrix;
+
+        int transformMatrixLocation = glGetUniformLocation(shaderProgram, "transformMatrix");
+        glProgramUniformMatrix4fv(shaderProgram, transformMatrixLocation, 1, GL_FALSE, glm::value_ptr(transformMatrix));
 
         glUseProgram(shaderProgram);
 
@@ -108,19 +112,11 @@ int main(void)
 unsigned int InitTriangle()
 {
     std::vector<SVertex> vertices = {
-        SVertex(glm::vec3(-0.5f, -0.5f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(0.0f, 0.0f)),
-        SVertex(glm::vec3(0.5f, -0.5f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(1.0f, 0.0f)),
-        SVertex(glm::vec3(0.5f, 0.5f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(1.0f, 1.0f)),
-        SVertex(glm::vec3(-0.5f, 0.5f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(0.0f, 1.0f))
+        SVertex(glm::vec3(-0.5f, -0.5f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(0.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
+        SVertex(glm::vec3(0.5f, -0.5f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(1.0f, 0.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
+        SVertex(glm::vec3(0.5f, 0.5f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(1.0f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f)),
+        SVertex(glm::vec3(-0.5f, 0.5f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f), glm::vec2(0.0f, 1.0f), glm::vec3(1.0f, 0.0f, 0.0f))
     };
-    /*
-    float vertices[] = {
-        // 3 floats for position & 3 floats for color
-        -1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f,    // bottom left
-         1.0f, -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f,     // bottom right
-         1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,     // top right
-        -1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f    // top left
-    };*/
     unsigned int indices[] = {
         0, 1, 2,
         0, 2, 3
@@ -143,6 +139,9 @@ unsigned int InitTriangle()
 
         glEnableVertexAttribArray(2);
         glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(SVertex), (void*)(2 * sizeof(glm::vec3)));
+
+        glEnableVertexAttribArray(3);
+        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(SVertex), (void*)(2 * sizeof(glm::vec3) + sizeof(glm::vec2)));
 
         GLuint indexbufferObject;
         glGenBuffers(1, &indexbufferObject);
@@ -183,25 +182,18 @@ unsigned int InitShaders()
         "layout (location = 0) in vec3 position;\n"
         "layout (location = 1) in vec3 color;\n"
         "layout (location = 2) in vec2 uv;\n"
+        "layout (location = 3) in vec3 normal;\n"
         "out vec3 vertexcolor;\n"
         "out vec2 outUV;\n"
         "uniform float PI;\n"
         "uniform float time;\n"
+        "uniform mat4 transformMatrix;\n"
         "float angle = 25.0f * PI/180.0f;\n"
-        "mat4 scaleMatrix = mat4(1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f);\n"
-        "mat4 translateMatrix = mat4(1.0f, 0.0f, 0.0f, 0.0f, "
-                                    "0.0f, 1.0f, 0.0f, 0.0f, "
-                                    "0.0f, 0.0f, 1.0f, 0.0f, "
-                                    "0.0f, 0.0f, 0.0f, 1.0f);\n"
-        "mat4 rotationMatrix = mat4(cos(angle),  sin(angle), 0.0f, 0.0f, "
-                                    "-sin(angle), cos(angle), 0.0f, 0.0f, "
-                                    "0.0f, 0.0f, 1.0f, 0.0f, "
-                                    "0.0f, 0.0f, 0.0f, 1.0f);\n"
         // Order is important : Scale -> Rotate -> Translate
         "void main()\n"
         "{\n"
-        "   scaleMatrix[0][0] = scaleMatrix[1][1] = (sin(time*0.1) / 2.0f) + 0.5f;\n"
-        "   vec4 newPos = scaleMatrix * vec4(position, 1.0);\n"
+        "   //scaleMatrix[0][0] = scaleMatrix[1][1] = (sin(time*0.1) / 2.0f) + 0.5f;\n"
+        "   vec4 newPos = transformMatrix * vec4(position, 1.0);\n"
         "   //newPos = vec4(position, 1.f);\n"
         "   gl_Position = newPos;\n"
         "   vertexcolor = color;\n"
@@ -216,28 +208,27 @@ unsigned int InitShaders()
         "uniform sampler2D Texture;"
         "uniform float time;\n"
         "uniform float PI;\n"
-       
         "void main()\n"
         "{\n"
         "    //FragColor = vec4(1.0f, 1.0f, vertexcolor.gr);\n"
         "    //FragColor = vec4(vertexcolor.rbg, 1.0f);\n"
-        "    FragColor =  texture(Texture, outUV);\n"
-        "    if(outUV.x > abs(sin(time*2.0f)))"
-        "       FragColor = vec4(0.0f, 0.2f, 0.2f, 1.0f);"
-        "    vec2 uv1 = outUV - vec2(0.5);\n"
-        "    vec2 uv2 = uv1 * vec2(abs(sin(time) / 0.5f));\n"
-        "    vec2 uv3 = uv2 + vec2(0.5);\n"
-        "    vec2 uvScroll = outUV + vec2(time*0.2f, 0.0f);\n"
-        "    vec2 modifiedUV = outUV * vec2(2.0) - vec2(0.5);\n"
-        "    vec2 invertedUV = vec2(1.0f, 1.0f) - outUV;\n"
-        "    float angle = time*15.0f * 3.14f/180.0f;\n"
-        "    vec2 uv4 = outUV * vec2(1.0f, 720.0f/1280.0f);\n"
-        "    vec2 uv5 = uv4 - vec2(0.5f);\n"
-        "    mat4 rotationMatrix = mat4(cos(angle),  sin(angle), 0.0f, 0.0f, "
-        "                                   -sin(angle), cos(angle), 0.0f, 0.0f, "
-                                            "0.0f, 0.0f, 1.0f, 0.0f, "
-        "                                   0.0f, 0.0f, 0.0f, 1.0f);\n"
-        "    vec4 rotatedUV = rotationMatrix * vec4(uv5, 0.0f, 1.0f);\n"
+        "    FragColor =  texture(Texture, outUV.xy);\n"
+        "    //if(outUV.x > abs(sin(time*2.0f)))"
+        "    //   FragColor = vec4(0.0f, 0.2f, 0.2f, 1.0f);"
+        "    //vec2 uv1 = outUV - vec2(0.5);\n"
+        "    //vec2 uv2 = uv1 * vec2(abs(sin(time) / 0.5f));\n"
+        "    //vec2 uv3 = uv2 + vec2(0.5);\n"
+        "    //vec2 uvScroll = outUV + vec2(time*0.2f, 0.0f);\n"
+        "    //vec2 modifiedUV = outUV * vec2(2.0) - vec2(0.5);\n"
+        "    //vec2 invertedUV = vec2(1.0f, 1.0f) - outUV;\n"
+        "    //float angle = time*15.0f * 3.14f/180.0f;\n"
+        "    //vec2 uv4 = outUV * vec2(1.0f, 720.0f/1280.0f);\n"
+        "    //vec2 uv5 = uv4 - vec2(0.5f);\n"
+        "    //mat4 rotationMatrix = mat4(cos(angle),  sin(angle), 0.0f, 0.0f, "
+        "    //                               -sin(angle), cos(angle), 0.0f, 0.0f, "
+        "    //                                 0.0f, 0.0f, 1.0f, 0.0f, "
+        "    //                               0.0f, 0.0f, 0.0f, 1.0f);\n"
+        "    //vec4 rotatedUV = rotationMatrix * vec4(uv5, 0.0f, 1.0f);\n"
         "    //FragColor = texture(Texture, rotatedUV.xy*vec2(5.0f) - vec2(0.5));\n"
         "}\0";
     int success;
@@ -283,7 +274,7 @@ unsigned int InitShaders()
 unsigned int LoadTexture()
 {
     int width, height, nrChannels;
-    std::string fileName = GetMediaPath() + "minion-transparent-background-9.png";
+    std::string fileName = GetMediaPath() + "minion.jpg";
     stbi_set_flip_vertically_on_load(true);
     unsigned char * data = stbi_load(fileName.c_str(), &width, &height, &nrChannels, STBI_rgb_alpha);
     if(data)
