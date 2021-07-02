@@ -1,13 +1,11 @@
 #include"Header.h"
+#include "Program.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 
 unsigned int InitTriangle();
 unsigned int InitShaders();
 unsigned int LoadTexture();
-
-std::string GetMediaPath()
-{
-    return getenv("MEDIA_PATH");
-}
 
 int main(void)
 {
@@ -53,6 +51,8 @@ int main(void)
     unsigned int vao = InitTriangle();
     unsigned int shaderProgram = InitShaders();
     unsigned int texture = LoadTexture();
+
+    CProgram* pProgram = CProgram::CreateProgram(new SProgramDef("default", "vertexShader.vs", "fragmentShader.fs"));
 
     int uniformColorLocation = glGetUniformLocation(shaderProgram, "uniformColor");
     glUniform4f(uniformColorLocation, 0.0f, 1.0f, 0.0f, 1.0f);
@@ -267,6 +267,7 @@ unsigned int InitShaders()
     if (!success) {
         char infoLog[512];
         glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+        std::cout << "ERROR::PROGRAM::MAIN::LINKING_FAILED\n" << infoLog << std::endl;
     }
     return shaderProgram;
 }
@@ -274,7 +275,7 @@ unsigned int InitShaders()
 unsigned int LoadTexture()
 {
     int width, height, nrChannels;
-    std::string fileName = GetMediaPath() + "minion.jpg";
+    std::string fileName = Utils::GetTexturePath() + "minion.jpg";
     stbi_set_flip_vertically_on_load(true);
     unsigned char * data = stbi_load(fileName.c_str(), &width, &height, &nrChannels, STBI_rgb_alpha);
     if(data)

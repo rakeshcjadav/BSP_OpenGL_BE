@@ -1,7 +1,9 @@
 #pragma once
-#include "Header.h"
+#include<string>
+using namespace std;
 
 // Forward Declaration
+class CShader;
 struct SProgramDef;
 
 class CProgram
@@ -14,16 +16,18 @@ private:
 	CProgram(const SProgramDef* pDef);
 	~CProgram();
 
+	void AttachShader(CShader* pShader);
+
 private:
-	GLuint m_programID = 0;
+	unsigned int m_programID = 0;
 };
 
 
 struct SProgramDef
 {
-	std::string name;
-	std::string vertexShader;
-	std::string fragmentShader;
+	string name;
+	string vertexShader;
+	string fragmentShader;
 
 	SProgramDef(string _name, string _vertexShader, string _fragementShader)
 	{

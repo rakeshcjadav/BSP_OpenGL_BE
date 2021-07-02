@@ -1,5 +1,6 @@
 #pragma once
-#include "Header.h"
+#include<string>
+using namespace std;
 
 class CShader
 {
@@ -13,10 +14,13 @@ public:
 	static CShader* CreateShader(ShaderType type, const string shaderName);
 	static void Destroy(CShader* program);
 
+	unsigned int ShaderID();
 private:
 	CShader(ShaderType type, const string shaderName);
 	~CShader();
 
+	string LoadShader(string shaderName);
+
 private:
-	GLuint m_shaderID;
+	unsigned int m_shaderID;
 };
